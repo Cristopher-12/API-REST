@@ -41,7 +41,7 @@ async def clientes():
         
 
 @app.get ("/clientes/{id}", response_model=Clientes)
-async def leer(id:int):
+async def id(id:int):
     with sqlite3.connect('sql/clientes.sqlite') as connection:
         connection.row_factory = sqlite3.Row
         cursor = connection.cursor()
@@ -52,7 +52,7 @@ async def leer(id:int):
 
 
 @app.post("/clientes/", response_model=Respuesta)
-def post_cliente(cliente: añadir_cliente):
+def post_clientes (cliente: añadir_cliente):
     with sqlite3.connect('sql/clientes.sqlite') as connection:
         connection.row_factory = sqlite3.Row
         cursor=connection.cursor()
@@ -63,7 +63,7 @@ def post_cliente(cliente: añadir_cliente):
 
 
 @app.put("/clientes/", response_model=Respuesta)
-async def put_cliente (cliente: Clientes):
+async def put_clientes (cliente: Clientes):
     with sqlite3.connect('sql/clientes.sqlite') as connection:
         connection.row_factory = sqlite3.Row
         cursor=connection.cursor()
@@ -74,7 +74,7 @@ async def put_cliente (cliente: Clientes):
         
 
 @app.delete("/clientes/{id}",response_model=Respuesta)
-async def delete_cliente(id: int):
+async def delete_clientes (id: int):
     with sqlite3.connect('sql/clientes.sqlite') as connection:
         cursor = connection.cursor()
         cursor.execute('delete from clientes where id_cliente = {}'.format(id))
