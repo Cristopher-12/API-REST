@@ -1,3 +1,3 @@
 # BASE DE DATOS
 
-(sqlite3 clientes.sql <clientes.sql)
+(sqlite3 clientes.sql <clientes.sqlite
