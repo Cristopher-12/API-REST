@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="es">
+    <header>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>DOM</title>  
+    </header>
+    <body>
+        <h1>DOM</h1>
+        <script type="text/javascript" src="/javascript/get_all.js"></script>
+        <a href="/templates/post_all.html">Ingresa un nuevo cliente</a>
+        <table class="table" id="tabla_clientes">
+        </table>
+        <script async>
+            document.body.onload = getClientes();
+        </script>
+    </body>
+</html>

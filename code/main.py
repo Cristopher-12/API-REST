@@ -10,29 +10,39 @@ from typing import Union
 from typing_extensions import Self
 from urllib import response
 from urllib.request import Request
+from fastapi.middleware.cors import CORSMiddleware
 
-class Respuesta (BaseModel):
-    message: str
+app = FastAPI() 
 
-class Clientes(BaseModel):
-    id_cliente: int
+DATABASE_URL = os.path.join("sql/clientes.sqlite") 
+
+security = HTTPBasic() 
+
+
+class Respuesta (BaseModel) :  
+    message: str  
+           
+class Cliente (BaseModel):  
+    id_cliente: int  
+    nombre: str  
+    email: str  
+
+class Agregar_cliente(BaseModel):
     nombre: str
-    email: str
+    email : str
 
-class añadir_cliente(BaseModel):
+origin = [
+    "https://8000-cristopher12-apirest-datmbv7hpqx.ws-us53.gitpod.io/",
+    "https://8080-cristopher12-apirest-datmbv7hpqx.ws-us53.gitpod.io/",
+]
 
-    nombre: str
-    email: str
-
-class Usuarios(BaseModel):
-    username: str
-    level: int
-
-app = FastAPI()
-
-security = HTTPBasic()
-
-DATABASE_URL = os.path.join("sql/usuarios.sqlite")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins="*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def get_current_level(credentials: HTTPBasicCredentials = Depends(security)):
     password_b = hashlib.md5(credentials.password.encode())
@@ -41,8 +51,7 @@ def get_current_level(credentials: HTTPBasicCredentials = Depends(security)):
         cursor = connection.cursor()
         cursor.execute(
             "SELECT level FROM usuarios WHERE username = ? and password = ?",
-            (credentials.username, password),
-        )
+            (credentials.username, password),)
         user = cursor.fetchone()
         if not user:
             raise HTTPException(
@@ -50,16 +59,17 @@ def get_current_level(credentials: HTTPBasicCredentials = Depends(security)):
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Basic"},
             )
-    return user[0]
+    return user[0] #ADMIN
 
-@app.get("/", response_model=Respuesta)
-async def index ():
-    return {"message": "API-REST"}
+@app.get("/", response_model=Respuesta) 
+async def index(): 
+    return {"message": "API REST"} 
 
-@app.get("/clientes/", response_model=List[Clientes],status_code=status.HTTP_202_ACCEPTED,summary="Regresa una lista de usuarios",description="Regresa una lista de usuarios")
-async def clientes (level: int = Depends(get_current_level)):
-    if level == 1: #Para usuario
-        with sqlite3.connect('sql/clientes.sqlite') as connection:
+@app.get("/clientes/", response_model=List[Cliente],status_code=status.HTTP_202_ACCEPTED,
+summary="Regresa la lista",description="Regresa la lista")
+async def get_clientes(level: int = Depends(get_current_level)):
+    if level == 1: 
+        with sqlite3.connect(DATABASE_URL) as connection:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             cursor.execute('SELECT * FROM clientes')
@@ -72,14 +82,21 @@ async def clientes (level: int = Depends(get_current_level)):
             headers={"WWW-Authenticate": "Basic"},
         )
 
-@app.get("/clientes/{id}", response_model=Clientes,status_code=status.HTTP_202_ACCEPTED,summary="Regresa un cliente basandoso en un id dado",description="Regresa un cliente basandoso en un id dado")
-async def id (id: int, level: int = Depends(get_current_level)):
-    if level == 1:
-        with sqlite3.connect('sql/clientes.sqlite') as connection:
+@app.get("/clientes/{id}", response_model=List[Cliente],status_code=status.HTTP_202_ACCEPTED,
+summary="Regresa la lista",description="Regresa la lista")
+async def get_cliente_id(id_cliente: int=0, level: int = Depends(get_current_level)):
+    if level == 1: 
+        with sqlite3.connect(DATABASE_URL) as connection:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
-            cursor.execute('select * from clientes where id_cliente = {};'.format(id))
-            response = cursor.fetchone()
+            cursor.execute("SELECT * FROM clientes WHERE id_cliente={}".format(id_cliente))
+            response = cursor.fetchall()
+            if response is None:
+                raise HTTPException(
+                    status_code = status.HTTP_404_NOT_FOUND,
+                    detail      = "Cliente not found",
+                    headers     = {"WWW-Authenticate": "Basic"},
+                )
             return response
     else:
         raise HTTPException(
@@ -88,16 +105,17 @@ async def id (id: int, level: int = Depends(get_current_level)):
             headers={"WWW-Authenticate": "Basic"},
         )
 
-@app.post("/clientes/", response_model=Respuesta,status_code=status.HTTP_202_ACCEPTED,summary="Agrega un cliente necesita nombre y email",description="Agrega un cliente necesita nombre y email")
-async def post_clientes (cliente: añadir_cliente, level: int = Depends(get_current_level)):
-    if level == 1:
-        with sqlite3.connect('sql/clientes.sqlite') as connection:
+
+@app.post("/clientes/", response_model=Respuesta,status_code=status.HTTP_202_ACCEPTED,
+summary="Inserta usuario",description="Inserta usuario")
+async def post_clientes(cliente: Agregar_cliente, level: int = Depends(get_current_level)):
+    if level == 1: 
+        with sqlite3.connect(DATABASE_URL) as connection:
+            connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
-            cursor.execute('INSERT INTO clientes(nombre, email) values ("{}","{}");'.format(cliente.nombre,cliente.email))
+            cursor.execute("INSERT INTO clientes (nombre, email) VALUES (? , ?);",(cliente.nombre, cliente.email))
             connection.commit()
-            response = {
-                "message": "Cliente Agregado"
-            }
+            response = {"message":"Cliente agregado"}
             return response
     else:
         raise HTTPException(
@@ -105,17 +123,16 @@ async def post_clientes (cliente: añadir_cliente, level: int = Depends(get_curr
             detail="No tienes permiso para este recurso",
             headers={"WWW-Authenticate": "Basic"},
         )
-    
-@app.put("/clientes/", response_model=Respuesta,status_code=status.HTTP_202_ACCEPTED,summary="Actualizar los datos de un cliente",description="Actualizar los datos de un cliente")
-async def put_clientes (cliente: Clientes,level: int = Depends(get_current_level)):
-    if level == 0: #Administrador
-        with sqlite3.connect('sql/clientes.sqlite') as connection:
+@app.put("/clientes/", response_model=Respuesta,status_code=status.HTTP_202_ACCEPTED,
+summary="Actualiza usuario",description="Actualiza usuario")
+async def put_clientes(cliente: Cliente, level: int = Depends(get_current_level)):
+    if level == 1: 
+        with sqlite3.connect(DATABASE_URL) as connection:
+            connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
-            cursor.execute('UPDATE clientes SET nombre = "{}", email = "{}" WHERE id_cliente = {};'.format(cliente.nombre,cliente.email,cliente.id_cliente))
+            cursor.execute("UPDATE clientes SET nombre =?, email= ? WHERE id_cliente =?;",(cliente.nombre, cliente.email, cliente.id_cliente))
             connection.commit()
-            response = {
-                "message": "Cliente Actualizado"
-            }
+            response = {"message":"Cliente actualizado"}
             return response
     else:
         raise HTTPException(
@@ -124,16 +141,17 @@ async def put_clientes (cliente: Clientes,level: int = Depends(get_current_level
             headers={"WWW-Authenticate": "Basic"},
         )
 
-@app.delete("/clientes/{id}",response_model=Respuesta, status_code=status.HTTP_202_ACCEPTED,summary="Borrar un cliente por su id",description="Borrar un cliente por su id")
-async def delete_clientes (id: int,level: int = Depends(get_current_level)):
-    if level == 0:
-        with sqlite3.connect('sql/clientes.sqlite') as connection:
+
+@app.delete("/clientes/", response_model=Respuesta,status_code=status.HTTP_202_ACCEPTED,
+summary="Elimina usuario",description="Elimina usuario")
+async def delete_clientes(level: int = Depends(get_current_level), id_cliente: int=0):
+    if level == 1: 
+        with sqlite3.connect(DATABASE_URL) as connection:
+            connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
-            cursor.execute('DELETE FROM clientes WHERE id_cliente = {}'.format(id))
+            cursor.execute("DELETE FROM clientes WHERE id_cliente= '{id_cliente}';".format(id_cliente=id_cliente))
             connection.commit()
-            response = {
-                "message": "Cliente Eliminado"
-            } 
+            response = {"message":"Cliente eliminado"}
             return response
     else:
         raise HTTPException(
